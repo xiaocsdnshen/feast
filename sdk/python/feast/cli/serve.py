@@ -1,4 +1,3 @@
-import logging
 import multiprocessing
 
 import click
@@ -10,8 +9,6 @@ from feast.constants import (
     DEFAULT_REGISTRY_SERVER_PORT,
 )
 from feast.repo_operations import create_feature_store
-
-logging.basicConfig(level=logging.INFO)
 
 
 @click.command("serve")

@@ -166,8 +166,15 @@ def get_app(
         其他平台调用此接口，Registry Server 验证 JWT 后设置 Cookie
         """
         try:
-            token = request.headers.get("dacp-token")
-            logger.info("token = " + token)
+            token = request.query_params.get("dacp-token")
+            if token is None:
+                logger.warning("Missing dacp-token in query params")
+                error_code, error_detail = SSO_ERROR_CODES["JWT_TOKEN_EMPTY"]
+                return RedirectResponse(
+                    url=f"{root_path}/error.html?error_code={error_code}",
+                    status_code=302
+                )
+            logger.info("token = %s", token)
             # Registry Server 验证 JWT（通过调用 GetProjectsByJWT）
             if isinstance(store.registry, RemoteRegistry):
                 from typing import cast
@@ -182,6 +189,7 @@ def get_app(
                     # 如果成功返回 projects，说明 JWT 有效
                     logger.info(f"JWT verified by Registry Server, found {len(projects)} projects")
                 except Exception as e:
+                    logger.warning("error===" + str(e))
                     error_msg = str(e)
                     # 使用统一的错误码解析
                     error_code, error_detail = parse_sso_error(error_msg)
@@ -210,6 +218,7 @@ def get_app(
             return response
 
         except Exception as e:
+            logger.warning("error===" + str(e))
             error_code, _ = parse_sso_error(str(e))
             return RedirectResponse(
                 url=f"{root_path}/error.html?error_code={error_code}",
@@ -495,6 +504,7 @@ def start_server(
     root_path: str = "",
     tls_key_path: str = "",
     tls_cert_path: str = "",
+    log_level: str = "warning",
 ):
     app = get_app(
         store,
@@ -502,13 +512,13 @@ def start_server(
         registry_ttl_sec,
         root_path,
     )
+    uvicorn_kwargs = dict(
+        app=app,
+        host=host,
+        port=port,
+        log_level=log_level.lower(),
+    )
     if tls_key_path and tls_cert_path:
-        uvicorn.run(
-            app,
-            host=host,
-            port=port,
-            ssl_keyfile=tls_key_path,
-            ssl_certfile=tls_cert_path,
-        )
-    else:
-        uvicorn.run(app, host=host, port=port)
+        uvicorn_kwargs["ssl_keyfile"] = tls_key_path
+        uvicorn_kwargs["ssl_certfile"] = tls_cert_path
+    uvicorn.run(**uvicorn_kwargs)

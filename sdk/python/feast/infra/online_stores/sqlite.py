@@ -710,16 +710,25 @@ class SqliteTable(InfraObject):
     Attributes:
         path: The absolute path of the Sqlite file.
         name: The name of the table.
-        conn: SQLite connection.
+        conn: SQLite connection (lazily initialized).
     """
 
     path: str
-    conn: sqlite3.Connection
+    _conn: Optional[sqlite3.Connection] = None
 
     def __init__(self, path: str, name: str):
         super().__init__(name)
         self.path = path
-        self.conn = _initialize_conn(path)
+
+    @property
+    def conn(self) -> sqlite3.Connection:
+        if self._conn is None:
+            self._conn = _initialize_conn(self.path)
+        return self._conn
+
+    @conn.setter
+    def conn(self, value: sqlite3.Connection):
+        self._conn = value
 
     def to_infra_object_proto(self) -> InfraObjectProto:
         sqlite_table_proto = self.to_proto()

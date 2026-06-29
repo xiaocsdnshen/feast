@@ -71,6 +71,7 @@ def ui(
         )
     store = create_feature_store(ctx)
     # Pass in the registry_dump method to get around a circular dependency
+    log_level = ctx.parent.params.get("log_level", "warning") if ctx.parent else "warning"
     store.serve_ui(
         host=host,
         port=port,
@@ -79,4 +80,5 @@ def ui(
         root_path=root_path,
         tls_key_path=tls_key_path,
         tls_cert_path=tls_cert_path,
+        log_level=log_level,
     )

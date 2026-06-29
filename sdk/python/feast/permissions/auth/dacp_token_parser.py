@@ -19,13 +19,16 @@ class DacpTokenParser(TokenParser):
     Parses unsigned JWT tokens with the following payload:
     {
         "group": "data_team",
-        "role": "admin",
+        "role": "data_proc_fed,2",    # comma-separated roles
         "account": "admin",
         "iss": "dacp",
         "iat": 1234567890
     }
 
     Role mapping:
+        - The "role" field supports comma-separated values (e.g., "data_proc_fed,2").
+          Each role is split, trimmed, and looked up in DACP_ROLE_MAPPING.
+          Unknown roles are skipped with a warning log.
         - External role names (e.g., "2", "data_proc_fed") can be mapped to Feast roles ("reader", "writer")
         - Configure via DACP_ROLE_MAPPING env variable, e.g.:
           DACP_ROLE_MAPPING='{"2":"writer","data_proc_fed":"writer","1":"reader"}'
@@ -39,17 +42,17 @@ class DacpTokenParser(TokenParser):
     def _load_role_mapping(self) -> dict:
         """Load role mapping from DACP_ROLE_MAPPING environment variable."""
         mapping_str = os.getenv(
-            "DACP_ROLE_MAPPING",
-            '{"2":"writer","data_proc_fed":"writer","1":"reader","data_proc_view":"reader"}'
+            "DACP_ROLE_MAPPING", '{"data_proc_fed":"writer","2":"reader"}'
         )
         try:
             mapping = json.loads(mapping_str)
             logger.info(f"Loaded DACP role mapping: {mapping}")
             return mapping
         except json.JSONDecodeError as e:
-            logger.warning(f"Invalid DACP_ROLE_MAPPING format: {e}. Using empty mapping.")
+            logger.warning(
+                f"Invalid DACP_ROLE_MAPPING format: {e}. Using empty mapping."
+            )
             return {}
-
 
     async def user_details_from_access_token(self, access_token: str) -> User:
         """
@@ -71,12 +74,16 @@ class DacpTokenParser(TokenParser):
                 access_token,
                 self.SECRET,
                 algorithms=["HS256"],
+                # 允许服务端和客户端时间相差60秒
+                leeway=60,
             )
         except jwt.ExpiredSignatureError:
             raise AuthenticationError("JWT_TOKEN_EXPIRED: Token has expired")
         except jwt.InvalidTokenError as e:
+            logger.warning(e)
             raise AuthenticationError(f"JWT_TOKEN_INVALID: {str(e)}")
         except Exception as e:
+            logger.warning(e)
             raise AuthenticationError(f"JWT_DECODE_ERROR: {str(e)}")
 
         # Build roles from claims
@@ -95,16 +102,25 @@ class DacpTokenParser(TokenParser):
         if not raw_role:
             raise AuthenticationError("JWT_NO_ROLE: No role found in token payload")
 
-        # Apply role mapping if configured
-        mapped_role = self.role_mapping.get(raw_role)
-        if mapped_role is None:
-            raise AuthenticationError(f"JWT_NO_ROLE: Mapped role '{raw_role}' -> '{mapped_role}")
+        # Parse comma-separated roles and apply role mapping,
+        # skip any unknown roles (not present in DACP_ROLE_MAPPING)
+        mapped_roles = []
+        for r in raw_role.split(","):
+            r = r.strip()
+            mapped = self.role_mapping.get(r)
+            if mapped:
+                mapped_roles.append(mapped)
+            else:
+                logger.warning(f"Unknown role '{r}' skipped, not in role mapping")
 
-        roles.append(mapped_role)
+        if not mapped_roles:
+            raise AuthenticationError("JWT_NO_ROLE: No role found in token payload")
+
+        roles.extend(mapped_roles)
 
         logger.info(
             f"DACP authenticated user: {account}, "
-            f"raw_role: {raw_role}, mapped_role: {mapped_role}, "
+            f"raw_role: {raw_role}, mapped_roles: {mapped_roles}, "
             f"roles: {roles}, cur_group: {group}"
         )
 
