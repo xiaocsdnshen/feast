@@ -17,7 +17,7 @@ from feast.repo_config import FeastConfigBaseModel
 
 
 class AuthConfig(FeastConfigBaseModel):
-    type: Literal["oidc", "kubernetes", "dacp", "no_auth"] = "no_auth"
+    type: Literal["oidc", "kubernetes", "dacp", "knova", "no_auth"] = "no_auth"
 
 
 class OidcAuthConfig(AuthConfig):
@@ -86,3 +86,20 @@ class DacpAuthConfig(AuthConfig):
     user_name_env: Optional[str] = "DACP_USER_NAME"
     group_name_env: Optional[str] = "DACP_GROUP_NAME"
     role_env: Optional[str] = "DACP_ROLE"
+
+
+class KnovaAuthConfig(AuthConfig):
+    """
+    Knova authentication configuration.
+
+    Uses environment variables to generate JWT tokens:
+    - KNOVA_USER_NAME: User name
+    - KNOVA_GROUP_NAME: Group name
+    - KNOVA_ROLE: Role
+    """
+
+    type: Literal["knova"] = "knova"
+    # Optional custom environment variable names
+    user_name_env: Optional[str] = "KNOVA_USER_NAME"
+    group_name_env: Optional[str] = "KNOVA_GROUP_NAME"
+    role_env: Optional[str] = "KNOVA_ROLE"

@@ -51,6 +51,7 @@ class AuthManagerType(enum.Enum):
     OIDC = "oidc"
     KUBERNETES = "kubernetes"
     DACP = "dacp"
+    KNOVA = "knova"
 
 
 def str_to_auth_manager_type(value: str) -> AuthManagerType:
@@ -127,6 +128,10 @@ def init_auth_manager(
             from feast.permissions.auth.dacp_token_parser import DacpTokenParser
 
             token_parser = DacpTokenParser()
+        elif auth_type == AuthManagerType.KNOVA:
+            from feast.permissions.auth.knova_token_parser import KnovaTokenParser
+
+            token_parser = KnovaTokenParser()
         else:
             raise ValueError(f"Unmanaged authorization manager type {auth_type}")
 

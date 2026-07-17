@@ -10,3 +10,4 @@ class AuthType(enum.Enum):
     OIDC = "oidc"
     KUBERNETES = "kubernetes"
     DACP = "dacp"
+    KNOVA = "knova"

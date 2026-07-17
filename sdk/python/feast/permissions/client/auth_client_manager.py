@@ -5,6 +5,7 @@ from feast.permissions.auth.auth_type import AuthType
 from feast.permissions.auth_model import (
     AuthConfig,
     DacpAuthConfig,
+    KnovaAuthConfig,
     KubernetesAuthConfig,
     OidcClientAuthConfig,
 )
@@ -31,6 +32,9 @@ class AuthenticationClientManagerFactory(ABC):
         from feast.permissions.client.kubernetes_auth_client_manager import (
             KubernetesAuthClientManager,
         )
+        from feast.permissions.client.knova_authentication_client_manager import (
+            KnovaAuthClientManager,
+        )
         from feast.permissions.client.oidc_authentication_client_manager import (
             OidcAuthClientManager,
         )
@@ -50,6 +54,9 @@ class AuthenticationClientManagerFactory(ABC):
         elif self.auth_config.type == AuthType.DACP.value:
             assert isinstance(self.auth_config, DacpAuthConfig)
             return DacpAuthClientManager(self.auth_config)
+        elif self.auth_config.type == AuthType.KNOVA.value:
+            assert isinstance(self.auth_config, KnovaAuthConfig)
+            return KnovaAuthClientManager(self.auth_config)
         else:
             raise RuntimeError(
                 f"No Auth client manager implemented for the auth type:${self.auth_config.type}"
